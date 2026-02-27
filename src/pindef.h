@@ -17,7 +17,7 @@
 #if defined(SINGLE_BOARD)
 #define waterPin      PB15
 #else
-#define waterPin      PA12
+// #define waterPin      PA12
 #endif
 
 #ifdef PCBV2

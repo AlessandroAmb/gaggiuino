@@ -3,6 +3,7 @@
 
 void log_init() {
   USART_DEBUG.begin(115200);
+  while(!Serial); // wait for USB host
 }
 
 // Unsure the consequences of swapping to parameter packing or currying since
