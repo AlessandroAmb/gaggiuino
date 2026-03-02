@@ -797,7 +797,7 @@ static bool sysReadinessCheck(void) {
 static inline void sysHealthCheck(float pressureThreshold) {
   //Reloading the watchdog timer, if this function fails to run MCU is rebooted
   watchdogReload();
-
+#if 0
   /* This *while* is here to prevent situations where the system failed to get a temp reading and temp reads as 0 or -7(cause of the offset)
   If we would use a non blocking function then the system would keep the SSR in HIGH mode which would most definitely cause boiler overheating */
   while (currentState.temperature <= 0.0f || currentState.temperature == NAN || currentState.temperature >= 170.0f) {
@@ -826,9 +826,10 @@ static inline void sysHealthCheck(float pressureThreshold) {
     setSteamBoilerRelayOff();
     currentState.isSteamForgottenON = currentState.steamSwitchState;
   }
-
+#endif
   //Releasing the excess pressure after steaming or brewing if necessary
-  #if defined LEGO_VALVE_RELAY || defined SINGLE_BOARD
+  //#if defined LEGO_VALVE_RELAY || defined SINGLE_BOARD
+  #if 0
 
   // No point going through the whole thing if this first condition isn't met.
   if (currentState.brewSwitchState || currentState.steamSwitchState || currentState.hotWaterSwitchState) {
@@ -890,6 +891,7 @@ static unsigned long getTimeSinceInit(void) {
 
 static void fillBoiler(void) {
   #if defined LEGO_VALVE_RELAY || defined SINGLE_BOARD
+  systemState.startupInitFinished = true; // Skip boiler fill
 
   if (systemState.startupInitFinished) {
     return;
@@ -904,7 +906,7 @@ static void fillBoiler(void) {
     fillBoilerUntilThreshod(getTimeSinceInit());
   }
   else if (isSwitchOn()) {
-    lcdShowPopup("Brew Switch ON!");
+    lcdShowPopup("Brew/Steam Switch ON!");
   }
 #else
   systemState.startupInitFinished = true;
@@ -928,7 +930,7 @@ static bool isBoilerFull(unsigned long elapsedTime) {
 
 // Checks if Brew switch is ON
 static bool isSwitchOn(void) {
-  return currentState.brewSwitchState && lcdCurrentPageId == NextionPage::Home;
+  return (currentState.brewSwitchState || currentState.steamSwitchState) && lcdCurrentPageId == NextionPage::Home;
 }
 
 static void fillBoilerUntilThreshod(unsigned long elapsedTime) {

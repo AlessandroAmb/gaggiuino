@@ -550,6 +550,7 @@ void lcdShowPopup(const char *msg) {
 }
 
 void lcdSetTankWaterLvl(uint16_t val) {
+  val = 0;
   myNex.writeNum("j0.val", val);
 }
 void lcdTargetState(int val) {

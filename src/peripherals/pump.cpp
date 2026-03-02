@@ -109,9 +109,17 @@ void pumpPhaseShift(void) {
 // Models the flow per click, follows a compromise between the schematic and recorded findings
 // plotted: https://www.desmos.com/calculator/eqynzclagu
 float getPumpFlowPerClick(const float pressure) {
-  float fpc = 0.f;
-  fpc = (pressureInefficiencyCoefficient[5] / pressure + pressureInefficiencyCoefficient[6]) * ( -pressure * pressure ) + ( flowPerClickAtZeroBar - pressureInefficiencyCoefficient[0]) - (pressureInefficiencyCoefficient[1] + (pressureInefficiencyCoefficient[2] - (pressureInefficiencyCoefficient[3] - pressureInefficiencyCoefficient[4] * pressure) * pressure) * pressure) * pressure;
-  return fpc * fpc_multiplier;
+  // float fpc = 0.f;
+  // fpc = (pressureInefficiencyCoefficient[5] / pressure + pressureInefficiencyCoefficient[6]) * ( -pressure * pressure ) + ( flowPerClickAtZeroBar - pressureInefficiencyCoefficient[0]) - (pressureInefficiencyCoefficient[1] + (pressureInefficiencyCoefficient[2] - (pressureInefficiencyCoefficient[3] - pressureInefficiencyCoefficient[4] * pressure) * pressure) * pressure) * pressure;
+  // Faaster: no division, less multiply
+  float fpc =
+    (((-0.000054f * pressure
+      + 0.000822f) * pressure
+      - 0.0018f) * pressure
+      - 0.0288f) * pressure
+      + 0.27f;
+return fpc;
+  //return fpc * fpc_multiplier;
 }
 
 // Follows the schematic from https://www.cemegroup.com/solenoid-pump/e5-60 modified to per-click
