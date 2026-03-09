@@ -5,13 +5,14 @@
 #include "pindef.h"
 #include "peripherals.h"
 #include <Arduino.h>
+#include "../peripherals/internal_watchdog.h"
 
 static inline void pinInit(void) {
-  #if defined(LEGO_VALVE_RELAY)
-    pinMode(valvePin, OUTPUT_OPEN_DRAIN);
-  #else
+  //#if defined(LEGO_VALVE_RELAY)
+  //  pinMode(valvePin, OUTPUT_OPEN_DRAIN);
+  //#else
     pinMode(valvePin, OUTPUT);
-  #endif
+  //#endif
   pinMode(relayPin, OUTPUT);
   #ifdef steamValveRelayPin
   pinMode(steamValveRelayPin, OUTPUT);
@@ -80,19 +81,27 @@ static inline bool waterPinState(void) {
 }
 
 static inline void openValve(void) {
-  #if defined LEGO_VALVE_RELAY
-    digitalWrite(valvePin, LOW);
-  #else
+  // #if defined LEGO_VALVE_RELAY
+  //   digitalWrite(valvePin, LOW);
+  // #else
     digitalWrite(valvePin, HIGH);
-  #endif
+  // #endif
 }
 
 static inline void closeValve(void) {
-  #if defined LEGO_VALVE_RELAY
-    digitalWrite(valvePin, HIGH);
-  #else
+  // #if defined LEGO_VALVE_RELAY
+  //   digitalWrite(valvePin, HIGH);
+  // #else
+  
+  watchdogReload();
     digitalWrite(valvePin, LOW);
-  #endif
+    delay(200);
+    digitalWrite(valvePin, HIGH);
+    delay(200);
+    digitalWrite(valvePin, LOW);
+  watchdogReload();
+    
+  // #endif
 }
 
 #endif

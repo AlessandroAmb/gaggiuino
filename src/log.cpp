@@ -1,9 +1,14 @@
 /* 09:32 15/03/2023 - change triggering comment */
 #include "log.h"
+#include "peripherals/internal_watchdog.h"
 
 void log_init() {
   USART_DEBUG.begin(115200);
-  while(!Serial); // wait for USB host
+  for (int i = 0; i < 10; i++){ // wait for USB host
+    watchdogReload();
+    delay (1000);
+    if (Serial) break;
+  }
 }
 
 // Unsure the consequences of swapping to parameter packing or currying since
