@@ -24,8 +24,10 @@ eepromValues_t runningCfg;
 
 SystemState systemState;
 
+#ifdef TOF_LED
 LED led;
 TOF tof;
+#endif
 
 void setup(void) {
   LOG_INIT();
@@ -58,13 +60,17 @@ void setup(void) {
 #endif
 
   // Initialise comms library for talking to the ESP mcu
+#if defined ESP32
   espCommsInit();
+#endif
 
   // Initialize LED
+  #if defined TOF_LED
   led.begin();
   led.setColor(9u, 0u, 9u); // WHITE
   // Init the tof sensor
   tof.init(currentState);
+  #endif
 
   // Initialising the saved values or writing defaults if first start
   eepromInit();
@@ -95,7 +101,9 @@ void setup(void) {
   LOG_INFO("Setup sequence finished");
 
   // Change LED colour on setup exit.
+  #if defined TOF_LED
   led.setColor(9u, 0u, 9u); // 64171
+  #endif
 
   iwdcInit();
 }
@@ -114,7 +122,9 @@ void loop(void) {
   brewDetect();
   modeSelect();
   lcdRefresh();
+#if defined ESP32
   espCommsSendSensorData(currentState);
+#endif
   sysHealthCheck(SYS_PRESSURE_IDLE);
 }
 
@@ -125,14 +135,18 @@ void loop(void) {
 
 static void sensorsRead(void) {
   sensorReadSwitches();
+#if defined ESP32
   espCommsReadData();
+#endif
   sensorsReadTemperature();
   sensorsReadWeight();
   sensorsReadPressure();
   calculateWeightAndFlow();
   updateStartupTimer();
+#if defined TOF_LED
   readTankWaterLevel();
   doLed();
+#endif
 }
 
 static void sensorReadSwitches(void) {
@@ -242,6 +256,7 @@ static void calculateWeightAndFlow(void) {
 }
 
 // return the reading in mm of the tank water level.
+  #if defined TOF_LED
 static void readTankWaterLevel(void) {
   if (lcdCurrentPageId == NextionPage::Home) {
     // static uint32_t tof_timeout = millis();
@@ -251,6 +266,7 @@ static void readTankWaterLevel(void) {
     // }
   }
 }
+#endif
 
 //##############################################################################################################################
 //############################################______PAGE_CHANGE_VALUES_REFRESH_____#############################################
@@ -695,7 +711,9 @@ static void profiling(void) {
     phaseProfiler.updatePhase(timeInShot, currentState);
     CurrentPhase& currentPhase = phaseProfiler.getCurrentPhase();
     ShotSnapshot shotSnapshot = buildShotSnapshot(timeInShot, currentState, currentPhase);
+  #if defined ESP32
     espCommsSendShotData(shotSnapshot, 100);
+  #endif
 
     if (phaseProfiler.isFinished()) {
       setPumpOff();
@@ -966,6 +984,7 @@ static void cpsInit(eepromValues_t &eepromValues) {
   }
 }
 
+  #if defined TOF_LED
 static void doLed(void) {
   if (runningCfg.ledDisco && brewActive) {
     switch(lcdCurrentPageId) {
@@ -996,3 +1015,4 @@ static void doLed(void) {
     }
   }
 }
+#endif
