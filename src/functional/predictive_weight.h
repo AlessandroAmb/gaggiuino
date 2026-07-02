@@ -49,7 +49,12 @@ public:
       return;
     }
     float previousPuckResistance = puckResistance;
-    puckResistance = state.smoothedPressure * 1000.f / state.smoothedPumpFlow; // Resistance in mBar * s / g
+    // Guard against division by zero when pump is off or flow too low
+    if (state.smoothedPumpFlow > 0.01f) {
+      puckResistance = state.smoothedPressure * 1000.f / state.smoothedPumpFlow; // Resistance in mBar * s / g
+    } else {
+      puckResistance = 0.f;  // No puck resistance without flow
+    }
     resistanceDelta = puckResistance - previousPuckResistance;
     pressureDrop = state.smoothedPressure * 10.f;
     pressureDrop -= pressureDrop - state.pumpClicks;

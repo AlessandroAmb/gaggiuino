@@ -9,11 +9,16 @@
 
 constexpr uint8_t PUMP_RANGE = 100;
 
+// Pump control mode: 1 = smooth phase modulation (new, for stable pressure), 0 = direct clicks (original, fast response)
+// Set to 0 for original click-based behavior, 1 for smooth ramping with better pressure stability
+#define PUMP_SMOOTH_MODE 1
+
 void pumpInit(const int powerLineFrequency, const float pumpFlowAtZero);
 void setPumpPressure(const float targetPressure, const float flowRestriction, const SensorState &currentState);
 void setPumpOff(void);
 void setPumpFullOn(void);
 void setPumpToRawValue(const uint8_t val);
+void setPumpManualDimmer(const uint8_t pumpPercent);
 long  getAndResetClickCounter(void);
 int getCPS(void);
 void pumpPhaseShift(void);

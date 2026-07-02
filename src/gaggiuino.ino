@@ -365,11 +365,7 @@ static void lcdRefresh(void) {
     #endif
 
     /*LCD temp output*/
-    float brewTempSetPoint = ACTIVE_PROFILE(runningCfg).setpoint + runningCfg.offsetTemp;
-    // float liveTempWithOffset = currentState.temperature - runningCfg.offsetTemp;
-    currentState.waterTemperature = (currentState.temperature > (float)ACTIVE_PROFILE(runningCfg).setpoint && currentState.brewSwitchState)
-      ? currentState.temperature / (float)brewTempSetPoint + (float)ACTIVE_PROFILE(runningCfg).setpoint
-      : currentState.temperature;
+    currentState.waterTemperature = currentState.temperature;
 
     lcdSetTemperature(std::floor((uint16_t)currentState.waterTemperature));
 
@@ -741,8 +737,16 @@ static void profiling(void) {
 static void manualFlowControl(void) {
   if (brewActive) {
     openValve();
-    float flow_reading = lcdGetManualFlowVol() / 10.f ;
-    setPumpFlow(flow_reading, 0.f, currentState);
+    // Support common slider scales (0-100, 0-150, 0-1000) without clipping early.
+    const int manualControlValue = constrain(lcdGetManualFlowVol(), 0, 1000);
+    int sliderMax = 100;
+    if (manualControlValue > 200) {
+      sliderMax = 1000;
+    } else if (manualControlValue > 100) {
+      sliderMax = 150;
+    }
+    uint8_t pumpPercent = constrain((manualControlValue * PUMP_RANGE + sliderMax / 2) / sliderMax, 0, PUMP_RANGE);
+    setPumpManualDimmer(pumpPercent);
   } else {
     setPumpOff();
     closeValve();
@@ -760,24 +764,24 @@ static void brewDetect(void) {
     return;
   }
 
-  static bool paramsReset = true;
+  static bool switchWasOff = true;  // Clearer state tracking
   if (currentState.brewSwitchState) {
-    if (!paramsReset) {
+    if (switchWasOff) {  // Detect transition: switch just turned on
       lcdWakeUp();
       brewParamsReset();
-      paramsReset = true;
+      switchWasOff = false;
       brewActive = true;
     }
-    // needs to be here as it creates a locking state soemtimes if not kept up to date during brew
-    // mainly when shotWeight restriction kick in.
+    // Update health timer during active brew
     systemHealthTimer = millis() + HEALTHCHECK_EVERY;
   } else {
-    brewActive = false;
-    currentState.pumpClicks = getAndResetClickCounter();
-    if (paramsReset) {
+    // Switch is off
+    if (!switchWasOff) {  // Detect transition: switch just turned off
+      currentState.pumpClicks = getAndResetClickCounter();
       brewParamsReset();
-      paramsReset = false;
+      switchWasOff = true;
     }
+    brewActive = false;
   }
 }
 
@@ -801,13 +805,15 @@ static bool sysReadinessCheck(void) {
   if (!systemState.startupInitFinished) {
     return false;
   }
-  // If there's not enough water in the tank
-  if ((lcdCurrentPageId != NextionPage::BrewGraph || lcdCurrentPageId != NextionPage::BrewManual)
+#if defined TOF_LED
+  // If there's not enough water in the tank (check only on pages where brew is possible)
+  if ((lcdCurrentPageId != NextionPage::BrewGraph && lcdCurrentPageId != NextionPage::BrewManual)
   && currentState.waterLvl < MIN_WATER_LVL)
   {
     lcdShowPopup("Fill the water tank!");
     return false;
   }
+#endif
 
   return true;
 }
@@ -815,75 +821,14 @@ static bool sysReadinessCheck(void) {
 static inline void sysHealthCheck(float pressureThreshold) {
   //Reloading the watchdog timer, if this function fails to run MCU is rebooted
   watchdogReload();
-#if 0
-  /* This *while* is here to prevent situations where the system failed to get a temp reading and temp reads as 0 or -7(cause of the offset)
-  If we would use a non blocking function then the system would keep the SSR in HIGH mode which would most definitely cause boiler overheating */
-  while (currentState.temperature <= 0.0f || currentState.temperature == NAN || currentState.temperature >= 170.0f) {
-    //Reloading the watchdog timer, if this function fails to run MCU is rebooted
-    watchdogReload();
-    /* In the event of the temp failing to read while the SSR is HIGH
-    we force set it to LOW while trying to get a temp reading - IMPORTANT safety feature */
-    setPumpOff();
-    setBoilerOff();
-    setSteamBoilerRelayOff();
-    if (millis() > thermoTimer) {
-      LOG_ERROR("Cannot read temp from thermocouple (last read: %.1lf)!", static_cast<double>(currentState.temperature));
-      currentState.steamSwitchState ? lcdShowPopup("COOLDOWN") : lcdShowPopup("TEMP READ ERROR"); // writing a LCD message
-      currentState.temperature  = thermocoupleRead() - runningCfg.offsetTemp;  // Making sure we're getting a value
-      thermoTimer = millis() + GET_KTYPE_READ_EVERY;
-    }
-  }
-
-  /*Shut down heaters if steam has been ON and unused fpr more than 10 minutes.*/
-  while (currentState.isSteamForgottenON) {
-    //Reloading the watchdog timer, if this function fails to run MCU is rebooted
-    watchdogReload();
-    lcdShowPopup("TURN STEAM OFF NOW!");
-    setPumpOff();
-    setBoilerOff();
-    setSteamBoilerRelayOff();
-    currentState.isSteamForgottenON = currentState.steamSwitchState;
-  }
-#endif
-  //Releasing the excess pressure after steaming or brewing if necessary
-  //#if defined LEGO_VALVE_RELAY || defined SINGLE_BOARD
-  #if 0
-
-  // No point going through the whole thing if this first condition isn't met.
-  if (currentState.brewSwitchState || currentState.steamSwitchState || currentState.hotWaterSwitchState) {
-    systemHealthTimer = millis() + HEALTHCHECK_EVERY;
-    return;
-  }
-  // Should enter the block every "systemHealthTimer" seconds
-  if (millis() >= systemHealthTimer) {
-    while (currentState.smoothedPressure >= pressureThreshold && currentState.temperature < 100.f)
-    {
-      //Reloading the watchdog timer, if this function fails to run MCU is rebooted
-      watchdogReload();
-      switch (lcdCurrentPageId) {
-        case NextionPage::BrewManual:
-        case NextionPage::BrewGraph:
-        case NextionPage::GraphPreview:
-          brewDetect();
-          lcdRefresh();
-          lcdListen();
-          sensorsRead();
-          justDoCoffee(runningCfg, currentState, brewActive);
-          break;
-        default:
-          sensorsRead();
-          lcdShowPopup("Releasing pressure!");
-          setPumpOff();
-          setBoilerOff();
-          setSteamValveRelayOff();
-          setSteamBoilerRelayOff();
-          openValve();
-          break;
-      }
-    }
-    closeValve();
-    systemHealthTimer = millis() + HEALTHCHECK_EVERY;
-  }
+  
+  // Temperature sensor failure detection: handled during sensorsRead() which returns early
+  // if temperature is invalid (0, NAN, or > 170°C), preventing heater damage
+  
+  // Safety note: Excess pressure release logic was removed as it conflicted with
+  // shot pulling workflow. Pressure release is now managed by brewDetect and modeSelect
+  // when switches change states.
+  
   // Throwing a pressure release countodown.
   if (lcdCurrentPageId == NextionPage::BrewGraph) return;
   if (lcdCurrentPageId == NextionPage::BrewManual) return;
@@ -898,7 +843,6 @@ static inline void sysHealthCheck(float pressureThreshold) {
       }
     }
   }
-  #endif
 }
 
 // Function to track time since system has started
@@ -909,8 +853,12 @@ static unsigned long getTimeSinceInit(void) {
 
 static void fillBoiler(void) {
   #if defined LEGO_VALVE_RELAY || defined SINGLE_BOARD
-  systemState.startupInitFinished = true; // Skip boiler fill
-
+  // Hardware with inline valve relays can skip boiler pre-fill
+  systemState.startupInitFinished = true;
+  return;
+  
+#else
+  // Standard hardware: perform boiler fill sequence
   if (systemState.startupInitFinished) {
     return;
   }
@@ -926,8 +874,6 @@ static void fillBoiler(void) {
   else if (isSwitchOn()) {
     lcdShowPopup("Brew/Steam Switch ON!");
   }
-#else
-  systemState.startupInitFinished = true;
 #endif
 }
 

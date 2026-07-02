@@ -81,6 +81,9 @@ static inline bool waterPinState(void) {
 }
 
 static inline void openValve(void) {
+  if (digitalRead(valvePin) == HIGH) {
+    return;
+  }
   // #if defined LEGO_VALVE_RELAY
   //   digitalWrite(valvePin, LOW);
   // #else
@@ -89,6 +92,9 @@ static inline void openValve(void) {
 }
 
 static inline void closeValve(void) {
+  if (digitalRead(valvePin) == LOW) {
+    return;
+  }
   // #if defined LEGO_VALVE_RELAY
   //   digitalWrite(valvePin, HIGH);
   // #else
