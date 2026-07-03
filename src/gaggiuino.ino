@@ -802,12 +802,12 @@ static bool sysReadinessCheck(void) {
     return false;
   }
   // If there's not enough water in the tank
-  if ((lcdCurrentPageId != NextionPage::BrewGraph || lcdCurrentPageId != NextionPage::BrewManual)
-  && currentState.waterLvl < MIN_WATER_LVL)
-  {
-    lcdShowPopup("Fill the water tank!");
-    return false;
-  }
+  // if ((lcdCurrentPageId != NextionPage::BrewGraph || lcdCurrentPageId != NextionPage::BrewManual)
+  // && currentState.waterLvl < MIN_WATER_LVL)
+  // {
+  //   lcdShowPopup("Fill the water tank!");
+  //   return false;
+  // }
 
   return true;
 }
@@ -907,26 +907,26 @@ static unsigned long getTimeSinceInit(void) {
 }
 
 static void fillBoiler(void) {
-  #if defined LEGO_VALVE_RELAY || defined SINGLE_BOARD
+  // #if defined LEGO_VALVE_RELAY || defined SINGLE_BOARD
 
-  if (systemState.startupInitFinished) {
-    return;
-  }
+//   if (systemState.startupInitFinished) {
+//     return;
+//   }
 
-  if (currentState.temperature > BOILER_FILL_SKIP_TEMP) {
-    systemState.startupInitFinished = true;
-    return;
-  }
+//   if (currentState.temperature > BOILER_FILL_SKIP_TEMP) {
+//     systemState.startupInitFinished = true;
+//     return;
+//   }
 
-  if (isBoilerFillPhase(getTimeSinceInit()) && !isSwitchOn()) {
-    fillBoilerUntilThreshod(getTimeSinceInit());
-  }
-  else if (isSwitchOn()) {
-    lcdShowPopup("Brew Switch ON!");
-  }
-#else
+//   if (isBoilerFillPhase(getTimeSinceInit()) && !isSwitchOn()) {
+//     fillBoilerUntilThreshod(getTimeSinceInit());
+//   }
+//   else if (isSwitchOn()) {
+//     lcdShowPopup("Brew Switch ON!");
+//   }
+// #else
   systemState.startupInitFinished = true;
-#endif
+// #endif
 }
 
 static bool isBoilerFillPhase(unsigned long elapsedTime) {
